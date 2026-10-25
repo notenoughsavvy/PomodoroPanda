@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PomoPulse - Calm Panda Focus Timer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #0f1715; /* Soft bamboo dark forest background */
+        }
+        .bamboo-glow {
+            box-shadow: 0 20px 50px -10px rgba(16, 185, 129, 0.15);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+
+    <!-- Ambient Glowing Background Elements -->
+    <div class="absolute -top-32 -left-32 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <!-- MAIN PANDA TIMER CARD -->
+    <div class="w-full max-w-md bg-slate-900/90 backdrop-blur-md rounded-3xl p-8 border border-emerald-900/30 shadow-2xl text-center relative overflow-hidden bamboo-glow">
+        
+        <!-- HEADER MENU -->
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center space-x-2 text-emerald-400 font-extrabold text-lg">
+                <!-- Panda Badge / Icon -->
+                <span class="text-2xl">🐼</span>
+                <span>PomoPulse</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs bg-emerald-950 text-emerald-400 border border-emerald-800/50 px-2.5 py-1 rounded-full font-bold flex items-center space-x-1">
+                    <span>🎋</span>
+                    <span>Bamboo Zen</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- MODE SELECTION BUTTONS -->
+        <div class="flex justify-center bg-slate-950/80 p-1.5 rounded-2xl mb-8 border border-emerald-900/20">
+            <button id="pomoBtn" class="flex-1 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white transition shadow-sm">Panda Focus</button>
+            <button id="shortBtn" class="flex-1 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-emerald-300 transition">Bamboo Rest</button>
+            <button id="longBtn" class="flex-1 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-emerald-300 transition">Deep Nap</button>
+        </div>
+
+        <!-- CIRCULAR SVG TIMER -->
+        <div class="relative w-64 h-64 mx-auto flex items-center justify-center mb-8">
+            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <!-- Background Circle Track -->
+                <circle cx="50" cy="50" r="45" stroke="#132a24" stroke-width="6" fill="transparent" />
+                <!-- Animated Emerald Progress Circle -->
+                <circle id="timerProgress" cx="50" cy="50" r="45" stroke="#10b981" stroke-width="6" stroke-linecap="round" fill="transparent"
+                        stroke-dasharray="283" stroke-dashoffset="0" class="transition-all duration-1000 ease-linear" />
+            </svg>
+            
+            <!-- Time Display Center -->
+            <div class="absolute flex flex-col items-center">
+                <span id="timeDisplay" class="text-5xl font-extrabold tracking-tight text-slate-100">25:00</span>
+                <div class="flex items-center space-x-1 mt-2">
+                    <span id="statusText" class="text-xs font-bold text-emerald-400 uppercase tracking-widest">Focus Mode</span>
+                    <span class="text-xs">🍃</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTROLS (START / PAUSE / RESET) -->
+        <div class="flex justify-center items-center space-x-4">
+            <button id="startPauseBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-lg shadow-emerald-600/20 transition flex items-center space-x-2">
+                <i id="btnIcon" data-lucide="play" class="w-4 h-4"></i>
+                <span id="btnText">Start Session</span>
+            </button>
+            <button id="resetBtn" class="p-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 rounded-2xl transition" title="Reset Session">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Calm Motto Footer -->
+        <p class="text-[11px] text-slate-500 mt-6 font-medium">Breathe in deep. Steady focus, one bamboo leaf at a time. 🐾</p>
+
+    </div>
+
+    <!-- JAVASCRIPT ENGINE -->
+    <script>
+        lucide.createIcons();
+
+        // 1. Grab HTML elements
+        const timeDisplay = document.getElementById('timeDisplay');
+        const startPauseBtn = document.getElementById('startPauseBtn');
+        const btnText = document.getElementById('btnText');
+        const btnIcon = document.getElementById('btnIcon');
+        const resetBtn = document.getElementById('resetBtn');
+        const timerProgress = document.getElementById('timerProgress');
+        const statusText = document.getElementById('statusText');
+
+        // Mode buttons
+        const pomoBtn = document.getElementById('pomoBtn');
+        const shortBtn = document.getElementById('shortBtn');
+        const longBtn = document.getElementById('longBtn');
+
+        // 2. Timer variables
+        let totalSeconds = 25 * 60; // 25 mins default
+        let timeLeft = totalSeconds;
+        let timerId = null;
+        let isRunning = false;
+
+        // 3. Helper function to format seconds into MM:SS
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        // 4. Update timer display and SVG ring progress
+        function updateDisplay() {
+            timeDisplay.textContent = formatTime(timeLeft);
+            
+            const circumference = 283;
+            const progress = timeLeft / totalSeconds;
+            const dashoffset = circumference - (progress * circumference);
+            timerProgress.style.strokeDashoffset = dashoffset;
+        }
+
+        // 5. Start / Pause Toggle Logic
+        function toggleTimer() {
+            if (!isRunning) {
+                // --- START ---
+                isRunning = true;
+                btnText.textContent = "Pause";
+                btnIcon.setAttribute("data-lucide", "pause");
+                lucide.createIcons();
+
+                timerId = setInterval(() => {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        updateDisplay();
+                    } else {
+                        // Time's up!
+                        clearInterval(timerId);
+                        isRunning = false;
+                        btnText.textContent = "Start Session";
+                        btnIcon.setAttribute("data-lucide", "play");
+                        lucide.createIcons();
+                        alert("🎋 Bamboo Rest Time! Take a calm breath.");
+                    }
+                }, 1000);
+
+            } else {
+                // --- PAUSE ---
+                clearInterval(timerId);
+                isRunning = false;
+                btnText.textContent = "Start Session";
+                btnIcon.setAttribute("data-lucide", "play");
+                lucide.createIcons();
+            }
+        }
+
+        // 6. Reset Timer Logic
+        function resetTimer() {
+            clearInterval(timerId);
+            isRunning = false;
+            timeLeft = totalSeconds;
+            btnText.textContent = "Start Session";
+            btnIcon.setAttribute("data-lucide", "play");
+            lucide.createIcons();
+            updateDisplay();
+        }
+
+        // 7. Mode Switcher
+        function setMode(minutes, modeName, buttonElement) {
+            clearInterval(timerId);
+            isRunning = false;
+            totalSeconds = minutes * 60;
+            timeLeft = totalSeconds;
+            btnText.textContent = "Start Session";
+            btnIcon.setAttribute("data-lucide", "play");
+            statusText.textContent = modeName;
+            updateDisplay();
+
+            // Reset tab styling
+            [pomoBtn, shortBtn, longBtn].forEach(btn => {
+                btn.className = "flex-1 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-emerald-300 transition";
+            });
+            // Active tab styling
+            buttonElement.className = "flex-1 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white transition shadow-sm";
+        }
+
+        // 8. Event Listeners
+        startPauseBtn.addEventListener('click', toggleTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        pomoBtn.addEventListener('click', () => setMode(25, "Panda Focus", pomoBtn));
+        shortBtn.addEventListener('click', () => setMode(5, "Bamboo Rest", shortBtn));
+        longBtn.addEventListener('click', () => setMode(15, "Deep Nap", longBtn));
+
+        // Initial setup
+        updateDisplay();
+    </script>
+</body>
+</html>
